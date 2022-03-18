@@ -29,6 +29,14 @@ function parseFile(path::String)
     times
 end
 
+function mkHist(t::Vector{Time}, l::String, s::Time, m::Float64)
+    hours = hour.(t)
+    counts = [count(==(i), hours) for i in unique(hours)]
+
+    bar(1:length(counts), counts, legend = false, xlabel = "Hour", ylabel = "Count", grid = false, title = "$l\n$(Hour(s).value):$(Minute(s).value)", yerror = sqrt.(counts))
+    hline!([m])
+end
+
 function toTex(data::DataFrame)
     table = data[:, [1, 5, 7]]
 
@@ -54,4 +62,4 @@ data[!, "Time span"] = string.(canonicalize.(round.(data.nanos, Minute)))
 
 data[!, :CPN] = length.(data.times) ./ (s.value for s in data.nanos)
 data[!, "Coincidence per hour"] = round.(data.CPN .* Nanosecond(Hour(1)).value, sigdigits=5)
-data[!, :hists] = [histogram(hour.(t), legend = false, xlabel = "Hour", ylabel = "Count", grid = false, title = "$l\n$(Hour(s).value):$(Minute(s).value)") for (t, l, s) in zip(data.times, data.City, data.start)]
+data[!, :hists] = [mkHist(t, l, s, m) for (t, l, s, m) in zip(data.times, data.City, data.start, data[:, "Coincidence per hour"])]
