@@ -36,7 +36,7 @@ function toTex(data::DataFrame)
 end
 
 function exportHist(data::DataFrame)
-    for (h, l) in zip(data.Histograms, data.city)
+    for (h, l) in zip(data.hists, data.City)
         savefig(h, l * ".png")
     end
 end
