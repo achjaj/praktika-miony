@@ -1,7 +1,7 @@
 using Dates
 using DataFrames
 using Plots
-using DelimitedFiles
+using Latexify
 
 function toPeriod(timeStr::String, delim = ":")
     types = [Hour, Minute, Second, Millisecond, Microsecond, Nanosecond]
@@ -29,14 +29,10 @@ function parseFile(path::String)
     times
 end
 
-function toCSV(data::DataFrame)
-    table = data[:, [1, 3:(end-1)...]]
-    labels = ["City", "Time span", "Coincidence per nanosecond", "Coincidence per hour"]
-    table.span = canonicalize.(round.(table.span, Minute))
-    table.CPN = round.(table.CPN, sigdigits=3)
-    table[:, 4] = round.(table[:, 4], sigdigits=4)
+function toTex(data::DataFrame)
+    table = data[:, [1, 5, 7]]
 
-    writedlm("table", vcat(reshape(labels, 1, 4), Matrix(table)))
+    write("table.tex", latexify(table, env=:table, latex=false, booktabs=true))
 end
 
 function exportHist(data::DataFrame)
@@ -48,15 +44,14 @@ end
 files = ["PRG_coincidence-2022_03_10.txt", "CPH-Coincidence-10-3-22.txt", "13-07-33_2022-03-10.txt"]
 
 prg, cph, mln = 1, 2, 3
-data = DataFrame(city = ["Prague", "Copenhagen", "Milano"], times = [parseFile(file) for file in files])
-data[!, :span] = [t[end] - t[1] for t in data.times]
 
-data[!, :CPN] = length.(data.times) ./ (s.value for s in data.span)
-data[!, "Coincidence per hour"] = data.CPN .* Nanosecond(Hour(1)).value
-data[!, "Histograms"] = [histogram(hour.(t), legend = false, xlabel = "Hour", ylabel = "Count", title = l) for (t, l) in zip(data.times, data.city)]
+data = DataFrame(City = ["Prague", "Copenhagen", "Milano"],
+                 start = [Time(0) + toPeriod(readline(file)) for file in files],
+                 times = [parseFile(file) for file in files])
 
-# ! SLOW !
-#prgCph = filter(t -> t in data.times[prg], data.times[cph])
-#prgMln = filter(t -> t in data.times[prg], data.times[mln])
-#cphMln = filter(t -> t in data.times[cph], data.times[mln])
-# no coincidences
+data[!, :nanos] = [t[end].instant for t in data.times]
+data[!, "Time span"] = string.(canonicalize.(round.(data.nanos, Minute)))
+
+data[!, :CPN] = length.(data.times) ./ (s.value for s in data.nanos)
+data[!, "Coincidence per hour"] = round.(data.CPN .* Nanosecond(Hour(1)).value, sigdigits=5)
+data[!, :hists] = [histogram(hour.(t), legend = false, xlabel = "Hour", ylabel = "Count", grid = false, title = "$l\n$(Hour(s).value):$(Minute(s).value)") for (t, l, s) in zip(data.times, data.City, data.start)]
