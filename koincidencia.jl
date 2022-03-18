@@ -33,7 +33,7 @@ function mkHist(t::Vector{Time}, l::String, s::Time, m::Float64)
     hours = hour.(t)
     counts = [count(==(i), hours) for i in unique(hours)]
 
-    bar(1:length(counts), counts, legend = false, xlabel = "Hour", ylabel = "Count", grid = false, title = "$l\n$(Hour(s).value):$(Minute(s).value)", yerror = sqrt.(counts))
+    bar(1:length(counts), counts, legend = false, xlabel = "Hour", ylabel = "Count", grid = false, title = "$l\n$(Dates.format(s, dateformat"H:MM"))", yerror = sqrt.(counts))
     hline!([m])
 end
 
