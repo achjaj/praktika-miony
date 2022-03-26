@@ -2,6 +2,7 @@ using Dates
 using DataFrames
 using Plots
 using Latexify
+using StatsBase
 
 function toPeriod(timeStr::String, delim = ":")
     types = [Hour, Minute, Second, Millisecond, Microsecond, Nanosecond]
@@ -51,6 +52,27 @@ function exportHist(data::DataFrame)
     end
 end
 
+function countTimes(times::Vector{Time})
+    minutes = [round(t.instant, Minute).value for t in times]
+    max = maximum(minutes)
+    edges = [i+1 for i in 0:max]
+    fit(Histogram, minutes, edges)
+
+
+    #=bins = [i:Nanosecond(1):i+Minute(1) for i in Time(0):Minute(1):max]
+    counts = fill(0, length(bins))
+    for t in times
+        for (i, bin) in enumerate(bins)
+            if t in bin
+                counts[i] += 1
+                continue
+            end
+        end
+    end
+
+    bins#[Minute(hour(b[end])) + Minute(b[end]) for b in bins], counts=#
+end
+
 approxIn(value::Nanosecond, arr::Vector{Nanosecond}, atol) = sum(isapprox(value.value, arrV.value; atol = atol) for arrV in arr) > 0
 pad(arr::Vector, len::Int) = [arr; fill("-", len - length(arr))]
 
@@ -73,7 +95,7 @@ data[!, :hists] = [mkHist(t, l, s, m) for (t, l, s, m) in zip(data.normTimes, da
 toTex(data)
 exportHist(data)
 
-# look for coincidences between universities
+#= look for coincidences between universities
 tol = Nanosecond(Microsecond(1)).value # resolution
 # firtsly we need to find common time window
 data[!, :hours] = [map(h -> h.value, round.(nano, Hour)) for nano in data.nanos]
@@ -100,4 +122,4 @@ table[!, "Prague - Copenhagen"] = pad(datedPrgCph, 5)
 table[!, "Prague - Milano"] = pad(datedPrgMln, 5)
 table[!, "Copenhagen - Milano"] = pad(datedCphMln, 5)
 
-write("table2.tex", latexify(table, env=:table, latex=false, booktabs=true))
+write("table2.tex", latexify(table, env=:table, latex=false, booktabs=true))=#

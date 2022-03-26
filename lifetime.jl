@@ -2,31 +2,46 @@ using DelimitedFiles
 using Dates
 using Plots
 using LsqFit
+using Formatting
+using StatsBase
 
-function process(file::String)
-    times = readdlm(file, ';')[:, end-1]
-    bins = [i:i+200 for i in 0:200:maximum(times)]
-    x = [range[end] * 1e-3 for range in bins]
-    counts = fill(0, length(bins))
+function degree(num)
+    fe = FormatExpr("{:.0e}")
+    10.0^(parse(Int, split(format(fe, num), "e")[2])+1)
+end
 
-    for t in times
-        for (i, bin) in enumerate(bins)
-            if t in bin
-                counts[i] += 1
-                continue
-            end
-        end
-    end
+function countTimes(times::Vector; binsize = 250)
+    max = maximum(times)
+   # edges = [i+binsize for i in 0:binsize:max]
+    fit(Histogram, times, nbins = round(Int, max/binsize))
+end
+
+function process(times::Vector{Int}, title)
+    hist = countTimes(times)
 
     @. model(x, p) = p[1] + p[2]*exp(-x/p[3])
-    fit = curve_fit(model, x, counts, [0.1, 0.01, 0.01])
+    fit = curve_fit(model, hist.edges[1][2:end], hist.weights, [0.1, 0.01, 1000])
 
-    plt = scatter(x, counts, label = "", grid = false, xlabel = "Time [μs]", ylabel = "Count")
-    plot!(plt, x, a -> model(a, fit.param), label = "Fit")
+    err = round(standard_errors(fit)[end], sigdigits=1)
+    m = degree(err)
+    τ = round(fit.param[end]/m, digits=1)*m
+
+    if m > 1
+        τ = Int(round(Int, τ))
+        err = Int(err)
+    end
+
+    plt = scatter(hist.edges[1][2:end], hist.weights, label = "", grid = false, xlabel = "Time [ns]", ylabel = "Count", title = title)
+    plot!(plt, hist.edges[1][2:end], a -> model(a, fit.param), label = "τ = ($τ +- $err) ns")
 
     fit, plt
 end
 
-files = ["CPH-Lifetime-11-03-22.txt"; filter(d -> occursin("test", d), readdir("."))]
+prgFiles = filter(d -> occursin("test", d), readdir("."))
+prgData = [filter(x -> x >= 2000, Int.(readdlm(f, ';')[:, end-1])) for f in prgFiles]
 
-results = process.(files)
+data = vcat([Int.(readdlm("CPH-Lifetime-11-03-22.txt", ';')[:, end-1])], prgData)
+titles = ["Copenhagen 11. 3."; ["Prague $d. 3." for d in [4, 8, 11]]]
+
+results = process.(data, titles)
+savefig.(getindex.(results, 2), "lifetime/" .* titles .* ".png")
