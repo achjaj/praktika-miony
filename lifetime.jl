@@ -18,8 +18,11 @@ end
 
 function process(times::Vector{Int}, title)
     hist = countTimes(times)
+    pltx = hist.edges[1][2:end]
+    σ = sqrt.(hist.weights)
 
     @. model(x, p) = p[1] + p[2]*exp(-x/p[3])
+    #fitWeights = 1 ./ σ .^2
     fit = curve_fit(model, hist.edges[1][2:end], hist.weights, [0.1, 0.01, 1000])
 
     err = round(standard_errors(fit)[end], sigdigits=1)
@@ -31,10 +34,11 @@ function process(times::Vector{Int}, title)
         err = Int(err)
     end
 
-    plt = scatter(hist.edges[1][2:end], hist.weights, label = "", grid = false, xlabel = "Time [ns]", ylabel = "Count", title = title)
-    plot!(plt, hist.edges[1][2:end], a -> model(a, fit.param), label = "Fit: τ = ($τ ± $err) ns")
-    plot!(plt, hist.edges[1][2:end], a -> model(a, [fit.param[1], fit.param[2], 2196.981]), label = "PDG 2020: τ = (2196.981 ± 0.0022) ns")
+    rw(x, m, e) = model(x, [fit.param[1], fit.param[2], m + e]) - model(x, [fit.param[1], fit.param[2], m])
 
+    plt = scatter(pltx, hist.weights, label = "", markersize=2.5, grid = false, xlabel = "Time [ns]", ylabel = "Count", title = title, yerrors = σ)
+    plot!(plt, pltx, a -> model(a, fit.param), label = "Fit: τ = ($τ ± $err) ns", ribbon = rw.(pltx, τ, err))
+    plot!(plt, pltx, a -> model(a, [fit.param[1], fit.param[2], 2196.981]), label = "PDG 2020: τ = (2196.9811 ± 0.0022) ns", ribbon=rw.(pltx, 2196.981, .0022))
     fit, plt
 end
 
