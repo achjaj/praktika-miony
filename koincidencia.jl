@@ -35,13 +35,15 @@ function parseFile(file::String)
 end
 
 function mkHist(nanos::Vector{Nanosecond}, city::String, start::Nanosecond, mean::Float64)
+    cph = city == "Copenhagen"
+
     mult = Nanosecond.(Hour(1)).value
     edges = collect(0:24) .* mult
 
     hist = fit(Histogram, [n.value for n in nanos .- start], edges, closed=:right)
 
-    plotx = edges[2:end] ./ mult
-    plt = plot(plotx, hist.weights, markershape=:rect, linestyle=:dot, xticks = plotx, xlabel = "Hour", ylabel = "Count", title = city, legend=:outertopright)
+    plotx = edges[2:(cph ? end - 2 : end)] ./ mult
+    plt = plot(plotx, hist.weights[1:(cph ? end - 2 : end)], markershape=:rect, linestyle=:dot, xticks = plotx, xlabel = "Hour", ylabel = "Count", title = city)
 
     yt = yticks(plt[1])
     yticks!(([yt[1]; mean], [yt[2]; string(Int(mean))]))
@@ -72,7 +74,7 @@ files = ["PRG_coincidence-2022_03_10.txt", "CPH-Coincidence-10-3-22.txt", "13-07
 
 prg, cph, mln = 1, 2, 3
 
-data = DataFrame(City = ["Prague", "Copenhagen", "Milano"],
+data = DataFrame(City = ["Prague", "Copenhagen", "Milan"],
                  start = [toNanos(readline(file)) for file in files],
                  nanos = parseFile.(files))
 
@@ -83,8 +85,9 @@ data[!, :CPN] = length.(data.nanos) ./ (s.value for s in data.nanoSpan)
 data[!, "Coincidence per hour"] = round.(data.CPN .* Nanosecond(Hour(1)).value, sigdigits=5)
 data[!, :hists] = [mkHist(t, l, s, m) for (t, l, s, m) in zip(data.nanos, data.City, data.start, data[:, "Coincidence per hour"])]
 
-toTex(data)
-exportHist(data)
+#toTex(data)
+#exportHist(data)
+
 
 #= look for coincidences between universities
 tol = Nanosecond(Microsecond(1)).value # resolution

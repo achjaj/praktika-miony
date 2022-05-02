@@ -16,6 +16,15 @@ function countTimes(times::Vector; binsize = 250)
     fit(Histogram, times, nbins = round(Int, max/binsize))
 end
 
+function toNanos(timeStr, delim = ":")
+    types = [Hour, Minute, Second, Millisecond, Microsecond, Nanosecond]
+
+    timeStr = replace(timeStr, '.' => delim)
+    arr = map(s -> parse(Int64, s), split(timeStr, delim))
+
+    sum(Nanosecond(t(v)) for (t, v) in zip(types, arr))
+end
+
 function process(times::Vector{Int}, title)
     hist = countTimes(times)
     pltx = hist.edges[1][2:end]
@@ -50,3 +59,15 @@ titles = ["Copenhagen 11. 3."; ["Prague $d. 3." for d in [4, 8, 11, 14]]]
 
 results = process.(data, titles)
 savefig.(getindex.(results, 2), "lifetime/" .* titles .* ".svg")
+
+
+lines = Vector{String}()
+for file in [prgFiles; "CPH-Lifetime-11-03-22.txt"]
+    times = readdlm(file, ';')[:, 2]
+    nanos = toNanos.(times)
+
+    hours = round(nanos[end] - nanos[1], Hour).value
+    push!(lines, "$file: $(length(times)/hours)")
+end
+
+writedlm("lifetime-CCAPH", lines)
